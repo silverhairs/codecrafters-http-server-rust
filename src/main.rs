@@ -1,5 +1,5 @@
 use std::{
-    io::{Read, Write},
+    io::{BufRead, BufReader, Write},
     net::TcpListener,
 };
 
@@ -17,29 +17,25 @@ fn main() {
         match maybe_stream {
             Ok(mut stream) => {
                 println!("Accepted connection");
-                let mut req = String::new();
-                let res = match stream.read_to_string(&mut req) {
-                    Ok(_) => {
-                        let lines: Vec<&str> = req.split("\r\n").collect();
-                        let first_line: Vec<&str> = lines[0].split(" ").collect();
-                        let maybe_path = first_line.iter().find(|s| s.starts_with("/")).cloned();
-                        match maybe_path {
-                            Some(path) => {
-                                if path == "/" {
-                                    "HTTP/1.1 200 OK\r\n\r\n"
-                                } else {
-                                    "HTTP/1.1 404 Not Found\r\n\r\n"
-                                }
-                            }
-                            None => "HTTP/1.1 404 Not Found\r\n\r\n",
+                let mut reader = BufReader::new(&mut stream);
+                let received = reader.fill_buf().unwrap().to_vec();
+                reader.consume(received.len());
+                let req = String::from_utf8_lossy(&received);
+                let lines: Vec<&str> = req.split("\r\n").collect();
+                let first_line: Vec<&str> = lines[0].split(" ").collect();
+                let maybe_path = first_line.iter().find(|s| s.starts_with("/")).cloned();
+                let res = match maybe_path {
+                    Some(path) => {
+                        if path == "/" {
+                            "HTTP/1.1 200 OK\r\n\r\n"
+                        } else {
+                            "HTTP/1.1 404 Not Found\r\n\r\n"
                         }
                     }
-                    Err(_) => "HTTP/1.1 404 Not Found\r\n\r\n",
+                    None => "HTTP/1.1 404 Not Found\r\n\r\n",
                 };
-
-                stream
-                    .write_all(res.as_bytes())
-                    .expect("Failed to respond to client");
+                println!("{}", res);
+                stream.write_all(res.as_bytes()).unwrap();
                 stream.flush().unwrap();
             }
             Err(e) => {
