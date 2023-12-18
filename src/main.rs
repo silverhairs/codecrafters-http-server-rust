@@ -3,8 +3,6 @@ use std::{
     net::TcpListener,
 };
 
-use regex::Regex;
-
 const ADDRESS: &str = "127.0.0.1";
 const PORT: i32 = 4221;
 
@@ -15,33 +13,34 @@ fn main() {
 
     let listener = TcpListener::bind(url).expect("failed to bind TCPListener to");
 
-    for stream in listener.incoming() {
-        match stream {
-            Ok(mut _stream) => {
+    for maybe_stream in listener.incoming() {
+        match maybe_stream {
+            Ok(mut stream) => {
                 println!("Accepted connection");
-                let mut res = String::new();
                 let mut req = String::new();
-                match _stream.read_to_string(&mut req) {
+                let res = match stream.read_to_string(&mut req) {
                     Ok(_) => {
-                        let pattern = Regex::new(r"^\/[\w\-\/]*$").unwrap();
-                        match req.split("\r\n").find(|s| pattern.is_match(s)) {
+                        let lines: Vec<&str> = req.split("\r\n").collect();
+                        let first_line: Vec<&str> = lines[0].split(" ").collect();
+                        let maybe_path = first_line.iter().find(|s| s.starts_with("/")).cloned();
+                        match maybe_path {
                             Some(path) => {
                                 if path == "/" {
-                                    res = "HTTP/1.1 200 OK\r\n\r\n".to_string();
+                                    "HTTP/1.1 200 OK\r\n\r\n"
+                                } else {
+                                    "HTTP/1.1 404 Not Found\r\n\r\n"
                                 }
                             }
-                            None => {
-                                res = "HTTP/1.1 404 Not Found\r\n\r\n".to_string();
-                            }
+                            None => "HTTP/1.1 404 Not Found\r\n\r\n",
                         }
                     }
-                    Err(e) => {
-                        println!("Failed to read request {}", e);
-                    }
+                    Err(_) => "HTTP/1.1 404 Not Found\r\n\r\n",
                 };
-                _stream
+
+                stream
                     .write_all(res.as_bytes())
                     .expect("Failed to respond to client");
+                stream.flush().unwrap();
             }
             Err(e) => {
                 println!("error: {}", e);
