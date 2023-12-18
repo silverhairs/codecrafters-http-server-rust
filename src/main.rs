@@ -26,13 +26,19 @@ fn main() {
                 let maybe_path = first_line.iter().find(|s| s.starts_with("/")).cloned();
                 let res = match maybe_path {
                     Some(path) => {
-                        if path == "/" {
-                            "HTTP/1.1 200 OK\r\n\r\n"
+                        if path.starts_with("/echo/") {
+                            let msg = match path.strip_prefix("/echo/") {
+                                Some(body) => body,
+                                None => "",
+                            };
+                            format!("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {}\r\n\r\n{}", msg.len(), msg)
+                        } else if path == "/" {
+                            "HTTP/1.1 200 OK\r\n\r\n".to_string()
                         } else {
-                            "HTTP/1.1 404 Not Found\r\n\r\n"
+                            "HTTP/1.1 404 Not Found\r\n\r\n".to_string()
                         }
                     }
-                    None => "HTTP/1.1 404 Not Found\r\n\r\n",
+                    None => "HTTP/1.1 404 Not Found\r\n\r\n".to_string(),
                 };
                 println!("{}", res);
                 stream.write_all(res.as_bytes()).unwrap();
