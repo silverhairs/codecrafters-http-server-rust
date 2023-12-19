@@ -41,20 +41,17 @@ fn main() {
                     let res = match maybe_path {
                         Some(path) => {
                             if path.starts_with("/files/") {
-                                let body = match path.strip_prefix("/files/") {
+                                match path.strip_prefix("/files/") {
                                     Some(file_name) => {
                                         match handle_file_request(&file_name.to_string(), dir) {
-                                            Some(content) => content,
-                                            None => "".to_string(),
+                                            Some(body) => {
+                                                format!("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\n\r\n{}", body.len(), body)
+                                            }
+                                            None => "HTTP/1.1 404 Not Found\r\n\r\n".to_string(),
                                         }
                                     }
-                                    None => "".to_string(),
-                                };
-                                println!("File requested: {}", body);
-                                if body.is_empty() {
-                                    "HTTP/1.1 404 Not Found\r\n\r\n".to_string();
+                                    None => "HTTP/1.1 404 Not Found\r\n\r\n".to_string(),
                                 }
-                                format!("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\n\r\n{}", body.len(), body)
                             } else if path.starts_with("/echo/") {
                                 let msg = match path.strip_prefix("/echo/") {
                                     Some(body) => body,
@@ -97,14 +94,19 @@ fn handle_file_request(file_name: &String, dir_name: String) -> Option<String> {
         return None;
     }
 
-    let path = format!("./{}/{}", dir_name, file_name);
-    let file = File::open(path).expect("Failed to open file");
-    let mut reader = BufReader::new(file);
-    let received = reader.fill_buf().expect("failed to read file").to_vec();
-    reader.consume(received.len());
-    let content = String::from_utf8(received);
-    return match content {
-        Ok(data) => Some(data),
+    let path = format!("{}{}", dir_name, file_name);
+    println!("Opening file: {}", path);
+    return match File::open(path) {
+        Ok(file) => {
+            let mut reader = BufReader::new(file);
+            let received = reader.fill_buf().expect("failed to read file").to_vec();
+            reader.consume(received.len());
+            let content = String::from_utf8(received);
+            return match content {
+                Ok(data) => Some(data),
+                Err(_) => None,
+            };
+        }
         Err(_) => None,
     };
 }
