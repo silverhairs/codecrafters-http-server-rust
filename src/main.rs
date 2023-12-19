@@ -1,7 +1,12 @@
 use std::{
+    env,
+    fs::File,
     io::{BufRead, BufReader, Write},
     net::TcpListener,
+    sync::Arc,
 };
+
+use itertools::Itertools;
 
 const ADDRESS: &str = "127.0.0.1";
 const PORT: i32 = 4221;
@@ -11,11 +16,19 @@ fn main() {
     println!("Logs from your program will appear here!");
     println!("Listening on {}", url);
 
+    let shared_dir = Arc::new(get_dir());
+
     let listener = TcpListener::bind(url).expect("failed to bind TCPListener to");
 
     loop {
         match listener.accept() {
             Ok((mut stream, _)) => {
+                let maybe_dir = Arc::clone(&shared_dir);
+                let dir = match maybe_dir.as_ref() {
+                    Some(path) => path.to_string(),
+                    None => "".to_string(),
+                };
+
                 std::thread::spawn(move || {
                     println!("Accepted connection");
                     let mut reader = BufReader::new(&mut stream);
@@ -27,7 +40,22 @@ fn main() {
                     let maybe_path = first_line.iter().find(|s| s.starts_with("/")).cloned();
                     let res = match maybe_path {
                         Some(path) => {
-                            if path.starts_with("/echo/") {
+                            if path.starts_with("/files/") {
+                                let body = match path.strip_prefix("/files/") {
+                                    Some(file_name) => {
+                                        match handle_file_request(&file_name.to_string(), dir) {
+                                            Some(content) => content,
+                                            None => "".to_string(),
+                                        }
+                                    }
+                                    None => "".to_string(),
+                                };
+                                println!("File requested: {}", body);
+                                if body.is_empty() {
+                                    "HTTP/1.1 404 Not Found\r\n\r\n".to_string();
+                                }
+                                format!("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\n\r\n{}", body.len(), body)
+                            } else if path.starts_with("/echo/") {
                                 let msg = match path.strip_prefix("/echo/") {
                                     Some(body) => body,
                                     None => "",
@@ -62,4 +90,32 @@ fn find_user_agent(lines: Vec<&str>) -> &str {
         Some(line) => &line.split(" ").last().expect("No user agent passed"),
         None => "",
     }
+}
+
+fn handle_file_request(file_name: &String, dir_name: String) -> Option<String> {
+    if file_name.starts_with("..") || file_name.starts_with("~") {
+        return None;
+    }
+
+    let path = format!("./{}/{}", dir_name, file_name);
+    let file = File::open(path).expect("Failed to open file");
+    let mut reader = BufReader::new(file);
+    let received = reader.fill_buf().expect("failed to read file").to_vec();
+    reader.consume(received.len());
+    let content = String::from_utf8(received);
+    return match content {
+        Ok(data) => Some(data),
+        Err(_) => None,
+    };
+}
+
+fn get_dir() -> Option<String> {
+    let args = env::args().collect_vec();
+    if args.len() < 3 {
+        return None;
+    }
+    if args[1].eq("--directory") {
+        return Some(args[2].clone());
+    }
+    return None;
 }
