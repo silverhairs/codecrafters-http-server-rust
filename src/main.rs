@@ -37,7 +37,7 @@ fn main() {
                     let req = String::from_utf8_lossy(&received);
                     let lines: Vec<&str> = req.split("\r\n").collect();
                     let first_line: &Vec<&str> = &lines[0].split(" ").collect();
-                    let maybe_path = first_line.iter().find(|s| s.starts_with("/")).cloned();
+                    let maybe_path = first_line.iter().find(|s| s.starts_with("/"));
                     let res = match maybe_path {
                         Some(path) => {
                             if path.starts_with("/files/") {
@@ -58,10 +58,10 @@ fn main() {
                                     None => "",
                                 };
                                 format!("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {}\r\n\r\n{}", msg.len(), msg)
-                            } else if path == "/user-agent" {
+                            } else if path.eq(&"/user-agent") {
                                 let user_agent = find_user_agent(lines);
                                 format!("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {}\r\n\r\n{}", user_agent.len(), user_agent)
-                            } else if path == "/" {
+                            } else if path.eq(&"/") {
                                 "HTTP/1.1 200 OK\r\n\r\n".to_string()
                             } else {
                                 "HTTP/1.1 404 Not Found\r\n\r\n".to_string()
