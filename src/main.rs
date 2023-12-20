@@ -16,15 +16,13 @@ fn main() {
     println!("Logs from your program will appear here!");
     println!("Listening on {}", url);
 
-    let shared_dir = Arc::new(get_dir());
-
     let listener = TcpListener::bind(url).expect("failed to bind TCPListener to");
+    let shared_dir = Arc::new(get_dir());
 
     loop {
         match listener.accept() {
             Ok((mut stream, _)) => {
-                let maybe_dir = Arc::clone(&shared_dir);
-                let dir = match maybe_dir.as_ref() {
+                let dir = match Arc::clone(&shared_dir).as_ref() {
                     Some(path) => path.to_string(),
                     None => "".to_string(),
                 };
@@ -37,12 +35,14 @@ fn main() {
                     let req = String::from_utf8_lossy(&received);
                     let res = on_request(&req, dir);
                     println!("{}", res);
-                    stream.write_all(res.as_bytes()).unwrap();
+                    stream
+                        .write_all(res.as_bytes())
+                        .expect("failed to write response");
                     stream.flush().unwrap();
                 });
             }
             Err(e) => {
-                println!("error: {}", e)
+                println!("error: {}", e);
             }
         }
     }
@@ -56,10 +56,11 @@ fn on_request(req: &str, dir: String) -> String {
         Some(path) => {
             if path.starts_with("/files/") {
                 match path.strip_prefix("/files/") {
-                    Some(file_name) => match get_file_content(&file_name.to_string(), dir) {
-                        Some(body) => 
-                            format!("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\n\r\n{}", body.len(), body),
-                        
+                    Some(file_name) => match get_file_content(file_name, dir) {
+                        Some(body) => {
+                            format!("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\n\r\n{}", body.len(), body)
+                        }
+
                         None => "HTTP/1.1 404 Not Found\r\n\r\n".to_string(),
                     },
                     None => "HTTP/1.1 404 Not Found\r\n\r\n".to_string(),
@@ -99,7 +100,7 @@ fn find_user_agent(lines: Vec<&str>) -> &str {
     }
 }
 
-fn get_file_content(file_name: &String, dir_name: String) -> Option<String> {
+fn get_file_content(file_name: &str, dir_name: String) -> Option<String> {
     if file_name.starts_with("..") || file_name.starts_with("~") {
         return None;
     }
