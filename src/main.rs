@@ -19,12 +19,11 @@ fn main() {
     println!("Listening on {}", url);
 
     let listener = TcpListener::bind(url).expect("failed to bind TCPListener to");
-    let shared_dir = Arc::new(get_dir());
 
     loop {
         match listener.accept() {
             Ok((mut stream, _)) => {
-                let dir = match Arc::clone(&shared_dir).as_ref() {
+                let dir = match Arc::new(get_dir()).as_ref() {
                     Some(path) => path.to_string(),
                     None => "".to_string(),
                 };
@@ -77,10 +76,7 @@ fn on_request(req: &str, dir: String) -> String {
                             file.write_all(content.as_bytes())
                                 .expect("failed to write data to file");
                             file.flush().unwrap();
-                            return format!(
-                                "HTTP/1.1 201 OK\r\nContent-Type: application/octet-stream\r\n\r\n: {}",
-                                lines.last().unwrap().len()
-                            );
+                            return "HTTP/1.1 201 OK\r\nContent-Type: application/octet-stream\r\n\r\n".to_string();
                         }
                         return "HTTP/1.1 404 Not Found\r\n\r\n".to_string();
                     }
