@@ -10,6 +10,8 @@ use itertools::Itertools;
 
 const ADDRESS: &str = "127.0.0.1";
 const PORT: i32 = 4221;
+const HTTP_GET: &str = "GET";
+const HTTP_POST: &str = "POST";
 
 fn main() {
     let url = format!("{}:{}", ADDRESS, PORT);
@@ -51,18 +53,37 @@ fn main() {
 fn on_request(req: &str, dir: String) -> String {
     let lines: Vec<&str> = req.split("\r\n").collect();
     let first_line: &Vec<&str> = &lines[0].split(" ").collect();
+    let method = first_line[0];
     let maybe_path = first_line.iter().find(|s| s.starts_with("/"));
     return match maybe_path {
         Some(path) => {
             if path.starts_with("/files/") {
                 match path.strip_prefix("/files/") {
-                    Some(file_name) => match get_file_content(file_name, dir) {
-                        Some(body) => {
-                            format!("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\n\r\n{}", body.len(), body)
-                        }
+                    Some(file_name) => {
+                        if method.eq(HTTP_GET) {
+                            match get_file_content(file_name, dir) {
+                                Some(body) => {
+                                    return format!("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\n\r\n{}", body.len(), body)
+                                }
 
-                        None => "HTTP/1.1 404 Not Found\r\n\r\n".to_string(),
-                    },
+                                None => return "HTTP/1.1 404 Not Found\r\n\r\n".to_string(),
+                            }
+                        } else if method.eq(HTTP_POST) {
+                            let path = format!("{}{}", dir, file_name);
+                            println!("Creating file at {}", path);
+                            let mut file = File::create(path).expect("Failed to create file");
+                            let content = lines.last().expect("failed to extract content");
+                            println!("File content: =>{}", content);
+                            file.write_all(content.as_bytes())
+                                .expect("failed to write data to file");
+                            file.flush().unwrap();
+                            return format!(
+                                "HTTP/1.1 201 OK\r\nContent-Type: application/octet-stream\r\n\r\n: {}",
+                                lines.last().unwrap().len()
+                            );
+                        }
+                        return "HTTP/1.1 404 Not Found\r\n\r\n".to_string();
+                    }
                     None => "HTTP/1.1 404 Not Found\r\n\r\n".to_string(),
                 }
             } else if path.starts_with("/echo/") {
@@ -76,7 +97,7 @@ fn on_request(req: &str, dir: String) -> String {
                     msg
                 )
             } else if path.eq(&"/user-agent") {
-                let user_agent = find_user_agent(lines);
+                let user_agent = find_header_value(lines, "User-Agent");
                 format!(
                     "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {}\r\n\r\n{}",
                     user_agent.len(),
@@ -92,11 +113,14 @@ fn on_request(req: &str, dir: String) -> String {
     };
 }
 
-fn find_user_agent(lines: Vec<&str>) -> &str {
-    let maybe_line = lines.iter().find(|line| line.contains("User-Agent"));
+fn find_header_value(lines: Vec<&str>, header_key: &str) -> String {
+    let maybe_line = lines.iter().find(|line| line.contains(header_key));
     match maybe_line {
-        Some(line) => &line.split(" ").last().expect("No user agent passed"),
-        None => "",
+        Some(line) => {
+            let val = line.replace(format!("{}:", header_key).as_str(), "");
+            return val.trim().to_string();
+        }
+        None => "".to_string(),
     }
 }
 
