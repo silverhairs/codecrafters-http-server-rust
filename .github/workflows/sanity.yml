@@ -15,8 +15,8 @@ jobs:
           curl https://codecrafters.io/install.sh | sh
       - name: Add Codecrafters git remote
         run: |
-          git config --global user.email "user@example.com"
-          git config --global user.name "silverhairs"
+          git config --global user.email "$(git --no-pager log --format=format:'%ae' -n 1)"
+          git config --global user.name "$(git --no-pager log --format=format:'%an' -n 1)"
           git fetch --unshallow origin
           git remote rm origin
           git remote add origin ${{secrets.REMOTE}}
