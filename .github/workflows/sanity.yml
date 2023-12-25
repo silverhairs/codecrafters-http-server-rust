@@ -1,0 +1,18 @@
+name: Sanity Check
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  sanity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install Codecrafters CLI
+        run: |
+          curl https://codecrafters.io/install.sh | sh
+      - name: Test
+        run: |
+          codecrafters test
