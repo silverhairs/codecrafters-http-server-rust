@@ -17,7 +17,7 @@ jobs:
         run: |
           git config --global user.email "hello@silverhairs.engineer"
           git config --global user.name "silverhairs"
-          git remote add codecrafters ${{secrets.REMOTE}}
+          git remote add origin ${{secrets.REMOTE}}
       - name: Test
         run: |
           codecrafters test
