@@ -15,7 +15,7 @@ jobs:
           curl https://codecrafters.io/install.sh | sh
       - name: Add Codecrafters git remote
         run: |
-          git remote add codecrafters {{secrets.REMOTE}}
+          git remote add codecrafters ${{secrets.REMOTE}}
       - name: Test
         run: |
           codecrafters test
