@@ -15,10 +15,11 @@ jobs:
           curl https://codecrafters.io/install.sh | sh
       - name: Add Codecrafters git remote
         run: |
-          cat .git/config
           git config --global user.email "hello@silverhairs.engineer"
           git config --global user.name "silverhairs"
+          git remote rm origin
           git remote add origin ${{secrets.REMOTE}}
+          cat .git/config
       - name: Test
         run: |
           codecrafters test
