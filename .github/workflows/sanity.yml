@@ -3,23 +3,12 @@ on:
   push:
     branches:
       - master
-
-jobs:
-  sanity:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Install Codecrafters CLI
-        run: |
-          curl https://codecrafters.io/install.sh | sh
-      - name: Add Codecrafters git remote
-        run: |
-          git config --global user.email "$(git --no-pager log --format=format:'%ae' -n 1)"
-          git config --global user.name "$(git --no-pager log --format=format:'%an' -n 1)"
-          git fetch --unshallow origin
-          git remote rm origin
-          git remote add origin ${{secrets.REMOTE}}
-      - name: Test
-        run: |
-          codecrafters test
+  jobs:
+     codecrafters-test:
+       runs-on: ubuntu-latest
+       steps:
+         - uses: actions/checkout@v2
+         - name: Run Codecrafters Test
+           uses: actions/codecrafters-test@v1
+           with:
+             remote-url: ${{ secrets.REMOTE }}
