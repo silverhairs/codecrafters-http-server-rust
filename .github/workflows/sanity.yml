@@ -3,12 +3,12 @@ on:
   push:
     branches:
       - master
-  jobs:
-     codecrafters-test:
-       runs-on: ubuntu-latest
-       steps:
-         - uses: actions/checkout@v2
-         - name: Run Codecrafters Test
-           uses: actions/codecrafters-test@v1
-           with:
-             remote-url: ${{ secrets.REMOTE }}
+jobs:
+  codecrafters-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run Codecrafters Test
+        uses: actions/codecrafters-test@v1
+        with:
+          remote-url: ${{ secrets.REMOTE }}
